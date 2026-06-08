@@ -7,8 +7,9 @@ import {
   CheckCircle2,
   Send,
   ShieldCheck,
+  Loader2,
 } from "lucide-react"
-import { business, boatTypes, serviceOptions } from "@/data/site"
+import { business, boatTypes, serviceOptions, formspreeEndpoint } from "@/data/site"
 import { Reveal } from "@/components/primitives/Reveal"
 import { cn } from "@/lib/utils"
 
@@ -40,6 +41,8 @@ export function QuoteForm() {
   const [values, setValues] = useState<Fields>(empty)
   const [errors, setErrors] = useState<Partial<Record<keyof Fields, string>>>({})
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   function update<K extends keyof Fields>(key: K, value: string) {
     setValues((v) => ({ ...v, [key]: value }))
@@ -60,7 +63,7 @@ export function QuoteForm() {
     return next
   }
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault()
     const next = validate(values)
     setErrors(next)
@@ -70,14 +73,40 @@ export function QuoteForm() {
       document.getElementById(`field-${first}`)?.focus()
       return
     }
-    // No backend in this static build — wire this up to your email service.
-    // Easiest option: create a Formspree form and POST `values` to it, e.g.
-    //   await fetch("https://formspree.io/f/your-id", {
-    //     method: "POST",
-    //     headers: { "Content-Type": "application/json", Accept: "application/json" },
-    //     body: JSON.stringify(values),
-    //   })
-    setSubmitted(true)
+
+    setSubmitting(true)
+    setSubmitError(null)
+    try {
+      const res = await fetch(formspreeEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({
+          name: values.name,
+          phone: values.phone,
+          email: values.email,
+          boatType: values.boatType,
+          boatLength: values.boatLength,
+          service: values.service,
+          message: values.message,
+          _subject: `New quote request — ${values.name} (${values.service || "service TBD"})`,
+        }),
+      })
+      if (res.ok) {
+        setSubmitted(true)
+      } else {
+        const data = await res.json().catch(() => null)
+        setSubmitError(
+          data?.errors?.[0]?.message ||
+            `Something went wrong sending your request. Please call us at ${business.phoneDisplay}.`
+        )
+      }
+    } catch {
+      setSubmitError(
+        `Couldn't reach the server. Check your connection and try again, or call us at ${business.phoneDisplay}.`
+      )
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const contactItems = [
@@ -336,12 +365,30 @@ export function QuoteForm() {
                 </div>
 
                 <div className="sm:col-span-2">
+                  {submitError && (
+                    <p
+                      role="alert"
+                      className="mb-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+                    >
+                      {submitError}
+                    </p>
+                  )}
                   <button
                     type="submit"
-                    className="group inline-flex w-full items-center justify-center gap-2.5 rounded-full bg-navy-800 px-7 py-4 text-base font-bold text-white shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:bg-navy-700 hover:shadow-lift"
+                    disabled={submitting}
+                    className="group inline-flex w-full items-center justify-center gap-2.5 rounded-full bg-navy-800 px-7 py-4 text-base font-bold text-white shadow-card transition-all duration-300 hover:-translate-y-0.5 hover:bg-navy-700 hover:shadow-lift disabled:cursor-not-allowed disabled:opacity-70 disabled:hover:translate-y-0"
                   >
-                    <Send className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
-                    Request Free Quote
+                    {submitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Sending…
+                      </>
+                    ) : (
+                      <>
+                        <Send className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+                        Request Free Quote
+                      </>
+                    )}
                   </button>
                   <p className="mt-3 text-center text-xs text-charcoal-700/55">
                     Or call us directly at{" "}

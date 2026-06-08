@@ -34,6 +34,13 @@ export const business = {
   ],
 } as const
 
+/**
+ * Quote-form submission endpoint (Formspree).
+ * To change the destination, create a form at formspree.io and paste its
+ * endpoint URL here: https://formspree.io/f/<your-form-id>
+ */
+export const formspreeEndpoint = "https://formspree.io/f/mdavgoqr"
+
 export const nav = [
   { label: "Services", href: "#services" },
   { label: "Results", href: "#results" },
